@@ -1259,8 +1259,10 @@ name = "quests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "events",
  "types",
+ "uuid",
 ]
 
 [[package]]
@@ -3117,8 +3119,10 @@ name = "world"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "events",
  "types",
+ "uuid",
 ]
 
 [[package]]
