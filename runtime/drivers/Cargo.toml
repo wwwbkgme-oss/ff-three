@@ -1,0 +1,24 @@
+[package]
+name        = "drivers"
+description = "ForgeFabrik runtime – I/O adapter layer (LLM providers, future: storage adapters)"
+version.workspace = true
+edition.workspace = true
+
+# ── Architecture note ─────────────────────────────────────────────────────────
+# This crate is the I/O boundary between the domain and the outside world.
+# It contains transport/adapter implementations (HTTP clients, provider routing)
+# but ZERO domain logic.
+#
+# Layer: runtime/drivers  (infrastructure adapters)
+# NOT:   plugins/          (domain-behaviour extensions)
+#
+# See: docs/PLUGIN_VS_DRIVER.md for the canonical boundary specification.
+
+[dependencies]
+reqwest    = { workspace = true }
+tokio      = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+anyhow     = { workspace = true }
+thiserror  = { workspace = true }
+tracing    = { workspace = true }
