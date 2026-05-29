@@ -12,6 +12,8 @@ const region  = awsCfg.get("region") ?? "eu-central-1";
 
 const dbPassword = cfg.requireSecret("dbPassword");
 const jwtSecret  = cfg.requireSecret("jwtSecret");
+// Set by CI/CD to the git-SHA of the deployed commit: pulumi config set imageTag <sha>
+const imageTag   = cfg.get("imageTag") ?? "latest";
 
 const containerPort = 8080;
 const isProd        = env === "prod";
@@ -217,7 +219,7 @@ const containerDefs = pulumi.all([
 ]).apply(([imageUrl, dbEp, dbPwd, redisEp, jwt, lgName]) =>
     JSON.stringify([{
         name:         "server",
-        image:        `${imageUrl}:latest`,
+        image:        `${imageUrl}:${imageTag}`,
         essential:    true,
         portMappings: [{ containerPort, protocol: "tcp" }],
         environment:  [
