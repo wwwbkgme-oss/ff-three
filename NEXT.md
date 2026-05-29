@@ -62,10 +62,16 @@ Json(CharacterView::from_character(&char, current_tick, stored.last_offset()))
 
 ---
 
+<<<<<<< HEAD
 ### ~~P2.2 · World simulation loop~~ ✅ `sim/tick_worker.rs`
 
 1 Hz Tokio-Hintergrundtask: TickEngine::tick → PgEventStore::append.
 TickContext deterministisch aus (tick, realm_seed). OCC-Guard aktiv.
+=======
+### ~~P2.2 · World simulation loop~~ ✅ `sim/tick_worker.rs` + in `main.rs` gestartet
+
+1 Hz Tokio-Task: TickEngine::tick → PgEventStore::append. OCC-Guard aktiv.
+>>>>>>> 4fed4b8b73a6745da2bba63965f3bb6241f6f4fc
 
 ---
 
@@ -89,10 +95,16 @@ loop {
 
 ---
 
+<<<<<<< HEAD
 ### ~~P2.3 · Projection catch-up worker~~ ✅ `sim/projection_worker.rs`
 
 500ms Polling, load_since(checkpoint) → character_views UPSERT.
 Migration 006: character_views + projection_checkpoints Tabellen.
+=======
+### ~~P2.3 · Projection catch-up worker~~ ✅ `sim/projection_worker.rs` + Migration 006
+
+500 ms Polling, load_since(checkpoint) → character_views UPSERT.
+>>>>>>> 4fed4b8b73a6745da2bba63965f3bb6241f6f4fc
 
 ---
 
