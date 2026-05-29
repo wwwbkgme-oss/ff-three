@@ -35,6 +35,7 @@ macro_rules! define_id {
     };
 }
 
+// ── Academy domain ────────────────────────────────────────────────────────────
 define_id!(StudentId);
 define_id!(QuestId);
 define_id!(BiomeId);
@@ -43,3 +44,22 @@ define_id!(AssessmentId);
 define_id!(SandboxRunId);
 define_id!(AchievementId);
 define_id!(CertificationId);
+
+// ── Character / simulation domain ────────────────────────────────────────────
+define_id!(CharacterId);
+define_id!(LocationId);
+define_id!(GoalId);
+define_id!(EpisodeId);
+define_id!(FactionId);
+
+// ── Infrastructure ────────────────────────────────────────────────────────────
+/// Every emitted event gets a globally unique EventId.
+define_id!(EventId);
+/// Groups causally related events into a single trace.
+define_id!(CorrelationId);
+/// Identity of the agent or system that emitted an event.
+define_id!(ActorId);
+/// Shard / realm of the simulation.
+define_id!(RealmId);
+/// Snapshot checkpoint identity.
+define_id!(SnapshotId);
