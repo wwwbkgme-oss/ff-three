@@ -1,0 +1,5 @@
+config:
+  aws:region: eu-central-1
+  # Secrets must be set before deploying:
+  #   pulumi config set --secret dbPassword <your-password>
+  #   pulumi config set --secret jwtSecret  <openssl rand -hex 64>
