@@ -1,0 +1,12 @@
+[package]
+name        = "projections"
+description = "Academy runtime – event-sourced read models (character views, leaderboards)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+types      = { workspace = true }
+events     = { workspace = true }
+characters = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
