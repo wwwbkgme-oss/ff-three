@@ -13,3 +13,4 @@ chrono      = { workspace = true }
 sqlx        = { workspace = true }   # allowed as serialisation concern
 async-trait = { workspace = true }   # trait contracts
 thiserror   = { workspace = true }
+blake3      = { workspace = true }
