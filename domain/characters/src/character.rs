@@ -1,7 +1,5 @@
 //! Core character aggregate state.
 
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use types::{CharacterId, FactionId, LocationId, WorldTick};

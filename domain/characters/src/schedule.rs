@@ -50,17 +50,17 @@ impl Default for Schedule {
 impl Schedule {
     /// A sensible default schedule for a generic NPC.
     ///
-    /// DAY_LENGTH_TICKS = 2400, so each "hour" ≈ 100 ticks.
+    /// DAY_LENGTH_TICKS = 2400, so each "hour" = 100 ticks.
     ///
-    /// ```
-    /// 0000–0600  Sleep    (0–600)
-    /// 0600–0700  Eat      (600–700)
-    /// 0700–1200  Work     (700–1200)
-    /// 1200–1300  Eat      (1200–1300)
-    /// 1300–1800  Work     (1300–1800)
-    /// 1800–2000  Leisure  (1800–2000)
-    /// 2000–2200  Social   (2000–2200)
-    /// 2200–2400  Sleep    (2200–2400)
+    /// ```text
+    /// 0000-0600  Sleep    (0-600)
+    /// 0600-0700  Eat      (600-700)
+    /// 0700-1200  Work     (700-1200)
+    /// 1200-1300  Eat      (1200-1300)
+    /// 1300-1800  Work     (1300-1800)
+    /// 1800-2000  Leisure  (1800-2000)
+    /// 2000-2200  Social   (2000-2200)
+    /// 2200-2400  Sleep    (2200-2400)
     /// ```
     pub fn default_npc() -> Self {
         let h = |hours: u64| hours * (DAY_LENGTH_TICKS / 24);

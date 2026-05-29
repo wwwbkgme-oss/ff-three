@@ -102,6 +102,22 @@ impl GoalType {
             Self::Custom(_)            => "custom",
         }
     }
+
+    /// Reconstruct a `GoalType` from a serialised display name.
+    ///
+    /// Parameter-carrying variants (`TravelTo`, `ConversationWith`, …) cannot
+    /// be fully reconstructed from name alone — they fall back to `Custom`.
+    /// Used by the reducer when replaying a `GoalAdded` event from the log.
+    pub fn from_display_name(name: &str) -> Self {
+        match name {
+            "eat"            => Self::Eat,
+            "sleep"          => Self::Sleep,
+            "rest"           => Self::Rest,
+            "recover_health" => Self::RecoverHealth,
+            "work"           => Self::Work,
+            other            => Self::Custom(other.to_string()),
+        }
+    }
 }
 
 /// A precondition that must be satisfied before a goal can be activated.

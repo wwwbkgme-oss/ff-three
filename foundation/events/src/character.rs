@@ -115,10 +115,16 @@ pub enum CharacterEvent {
         at:           WorldTick,
     },
     StatsUpdated {
-        character_id: CharacterId,
-        health_delta: i32,
-        energy_delta: i32,
-        at:           WorldTick,
+        character_id:  CharacterId,
+        health_delta:  i32,
+        energy_delta:  i32,
+        /// Positive = more hungry, negative = fed.
+        hunger_delta:  i32,
+        /// Positive = more tired, negative = rested.
+        fatigue_delta: i32,
+        /// Positive = more lonely, negative = socialised.
+        social_delta:  i32,
+        at:            WorldTick,
     },
 }
 
