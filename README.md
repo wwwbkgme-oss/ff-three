@@ -110,6 +110,19 @@ cargo test -p characters       # 18 determinism tests
 cargo test                     # full workspace
 ```
 
+### Production-Ready Features
+
+| Feature | Status |
+|---|---|
+| Character REST handlers (spawn/get/tick/goals/memory) | ✓ via PgEventStore + CharacterReducer |
+| Tick-Worker (1 Hz Simulation) | ✓ `sim/tick_worker.rs` — startet mit Server |
+| Projection-Worker (Read-Model catch-up) | ✓ `sim/projection_worker.rs` |
+| 6 Migrations (inkl. 006_projections) | ✓ |
+| CI/CD (GitHub Actions) | ✓ `.github/workflows/ci.yml` |
+| Free-LLM-Drivers (Groq, SambaNova, LLM7, OpenRouter, NVIDIA, Ollama) | ✓ |
+| Event-First + OCC-Guard | ✓ `ExpectedVersion::Exact(version)` |
+| SYNC_CONTRACT v0.1 Compliance | ✓ `FORGE_CORE_SYNC.md` |
+
 ### Run examples
 
 ```bash
