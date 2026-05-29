@@ -6,8 +6,9 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
 use agents::Orchestrator;
+use llm_free::FreeClient;
 
-use crate::{config::AppConfig, llm::LlmClient};
+use crate::config::AppConfig;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -16,8 +17,9 @@ pub struct AppState {
     pub config:       Arc<AppConfig>,
     /// Pure domain orchestrator – selects strategies, builds prompts.
     pub orchestrator: Arc<Orchestrator>,
-    /// Optional LLM client – present when OPENAI_API_KEY is set.
-    pub llm:          Option<Arc<LlmClient>>,
+    /// Free-tier LLM client — active when any provider env var is set.
+    /// Chain: Groq → SambaNova → LLM7 → OpenRouter → NVIDIA NIM → Ollama.
+    pub llm:          Option<Arc<FreeClient>>,
 }
 
 impl AppState {
@@ -40,14 +42,19 @@ impl AppState {
         // ── Domain orchestrator ───────────────────────────────────────────────
         let orchestrator = Arc::new(Orchestrator::new());
 
-        // ── LLM client (optional) ─────────────────────────────────────────────
-        let llm = config.openai_api_key.as_ref().map(|key| {
-            tracing::info!("LLM backend enabled ({})", config.openai_model);
-            Arc::new(LlmClient::new(key.clone(), config.openai_model.clone()))
-        });
-        if llm.is_none() {
-            tracing::info!("LLM disabled – using deterministic agent stubs");
-        }
+        // ── LLM client (free-tier auto-detection) ─────────────────────────────
+        let free = FreeClient::from_env();
+        let llm = if free.has_providers() {
+            tracing::info!(
+                "LLM: {} provider(s) active — {}",
+                free.providers().len(),
+                free.providers().iter().map(|p| p.kind.to_string()).collect::<Vec<_>>().join(" → ")
+            );
+            Some(Arc::new(free))
+        } else {
+            tracing::info!("LLM disabled — set GROQ_API_KEY, SAMBANOVA_API_KEY, LLM7_API_KEY, OPENROUTER_API_KEY, or NVIDIA_API_KEY to enable");
+            None
+        };
 
         Ok(Self { db, redis, config: Arc::new(config.clone()), orchestrator, llm })
     }
