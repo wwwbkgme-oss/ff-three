@@ -201,6 +201,19 @@ The richest aggregate in the system.  Key modules:
 
 ---
 
+## Background Workers
+
+Beide werden beim Start via `main.rs` als Tokio-Hintergrundtasks gespawnt:
+
+| Worker | Datei | Intervall | Aufgabe |
+|---|---|---|---|
+| `tick_worker` | `runtime/server/src/sim/tick_worker.rs` | 1 Hz | TickEngine::tick pro NPC → PgEventStore::append |
+| `projection_worker` | `runtime/server/src/sim/projection_worker.rs` | 500 ms | load_since → character_views UPSERT |
+
+Graceful shutdown via `tokio::select!` — Worker-Absturz wird geloggt.
+
+---
+
 ## REST API
 
 ```
