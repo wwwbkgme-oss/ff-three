@@ -286,6 +286,9 @@ impl AggregateRoot for Character {
                 state.stats.clamp();
             }
         }
+        // Every applied event advances the aggregate version by 1.
+        // Pass ExpectedVersion::Exact(state.version) to EventStore::append.
+        state.version += 1;
         state
     }
 }
