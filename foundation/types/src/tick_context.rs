@@ -31,14 +31,25 @@ pub struct TickContext {
 }
 
 impl TickContext {
+    /// Full constructor: supply tick, realm UUID, and delta.
+    ///
+    /// `rng_seed` is derived deterministically from `tick ^ realm`.
+    pub fn new(tick: u64, realm_uuid: uuid::Uuid, delta_ticks: u64) -> Self {
+        use crate::ids::RealmId;
+        let realm = RealmId::from(realm_uuid);
+        let rng_seed = tick
+            .wrapping_mul(0x9e3779b97f4a7c15)
+            ^ (realm_uuid.as_u128() as u64);
+        Self { tick: WorldTick(tick), realm, rng_seed, delta_ticks }
+    }
+
     /// Minimal constructor for unit tests and single-realm deployments.
+    ///
+    /// Uses a fixed realm UUID so the seed is deterministic.
     pub fn test(tick: u64) -> Self {
-        Self {
-            tick:        WorldTick(tick),
-            realm:       RealmId::new(),
-            rng_seed:    tick.wrapping_mul(0x9e3779b97f4a7c15),
-            delta_ticks: 1,
-        }
+        // Fixed realm UUID for tests — never call new_v4() here.
+        const TEST_REALM: uuid::Uuid = uuid::Uuid::from_u128(0x_dead_beef_0000_0000_0000_0000_0000_0001);
+        Self::new(tick, TEST_REALM, 1)
     }
 
     /// Advance to the next tick, refreshing the RNG seed.
