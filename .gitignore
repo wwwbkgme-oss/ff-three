@@ -1,0 +1,13 @@
+/target/
+**/*.rs.bk
+# Cargo.lock committed – binary workspace, reproducible builds required
+
+.sqlx/
+.env
+.env.local
+.idea/
+.vscode/
+*.swp
+.DS_Store
+infra/.pulumi/
+infra/node_modules/

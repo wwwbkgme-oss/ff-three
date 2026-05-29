@@ -1,0 +1,10 @@
+[package]
+name        = "agents"
+description = "Academy domain – pure agent strategies (no I/O)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+types  = { workspace = true }
+events = { workspace = true }
+anyhow = { workspace = true }

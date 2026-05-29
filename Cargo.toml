@@ -1,0 +1,50 @@
+[workspace]
+members  = ["foundation/*", "domain/*", "runtime/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+# ── Single version table – no drift between crates ────────────────────────────
+[workspace.dependencies]
+# Async
+tokio        = { version = "1",    features = ["full"] }
+async-trait  = "0.1"
+# Serialisation
+serde        = { version = "1",    features = ["derive"] }
+serde_json   = "1"
+# Primitives
+uuid         = { version = "1",    features = ["v4", "serde"] }
+chrono       = { version = "0.4",  features = ["serde"] }
+# Database (runtime only – allowed in foundation as a serialisation concern)
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate",
+] }
+# Cache (runtime only)
+redis        = { version = "0.25", features = ["tokio-comp", "aio"] }
+# Web (runtime only)
+axum         = { version = "0.7",  features = ["macros"] }
+tower        = "0.4"
+tower-http   = { version = "0.5",  features = ["cors", "trace", "request-id"] }
+# HTTP client for LLM (runtime only)
+reqwest      = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+# Errors
+anyhow       = "1"
+thiserror    = "1"
+# Utilities
+rand         = "0.8"
+sha2         = "0.10"
+hex          = "0.4"
+tempfile     = "3"
+dotenvy      = "0.15"
+# Observability
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# ── Internal crates ────────────────────────────────────────────────────────────
+types   = { path = "foundation/types" }
+events  = { path = "foundation/events" }
+quests  = { path = "domain/quests" }
+world   = { path = "domain/world" }
+agents  = { path = "domain/agents" }
+sandbox = { path = "runtime/sandbox" }

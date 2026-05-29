@@ -1,0 +1,14 @@
+[package]
+name        = "sandbox"
+description = "Academy runtime – sandboxed code execution and security scanner"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+types    = { workspace = true }
+tokio    = { workspace = true }
+chrono   = { workspace = true }
+tempfile = { workspace = true }
+serde_json = { workspace = true }
+anyhow   = { workspace = true }
+tracing  = { workspace = true }

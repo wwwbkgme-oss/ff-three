@@ -1,0 +1,15 @@
+[package]
+name        = "types"
+description = "ForgeFabrik Academy – foundation: primitive domain types, IDs, errors, traits"
+version.workspace = true
+edition.workspace = true
+
+# Serialisation is an allowed foundation concern (BKG §1)
+[dependencies]
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+uuid        = { workspace = true }
+chrono      = { workspace = true }
+sqlx        = { workspace = true }   # allowed as serialisation concern
+async-trait = { workspace = true }   # trait contracts
+thiserror   = { workspace = true }

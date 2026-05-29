@@ -1,0 +1,10 @@
+[package]
+name        = "world"
+description = "Academy domain – biome state engine and knowledge graph"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+types  = { workspace = true }
+events = { workspace = true }
+anyhow = { workspace = true }

@@ -1,0 +1,10 @@
+[package]
+name        = "quests"
+description = "Academy domain – quest business logic and reducers"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+types  = { workspace = true }
+events = { workspace = true }
+anyhow = { workspace = true }
