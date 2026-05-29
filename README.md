@@ -1,6 +1,10 @@
 # ForgeFabrik Academy — ff-three
 
 An event-sourced, deterministic simulation engine for an educational RPG.
+
+**Föderiertes ForgeFabrik-System:**  
+[`forge-core`](https://github.com/wwwbkgme-oss/forge-core) ← Kanonischer Kernel |
+[`FORGE_CORE_SYNC.md`](FORGE_CORE_SYNC.md) ← Compliance-Status
 Characters evolve, pursue goals, form memories, and socialise — all driven
 by a replay-safe event log.  An Axum HTTP server exposes the academy to
 students; free-tier LLM drivers power AI agents without cloud spend.

@@ -1,6 +1,10 @@
-# ForgeFabrik Academy — Architecture
+# ForgeFabrik Academy — Architecture (ff-three)
 
 > **Events are truth. State is projection.**
+
+> forge-core kernel: [forge-core/SYNC_CONTRACT.md](https://github.com/wwwbkgme-oss/forge-core/blob/main/SYNC_CONTRACT.md)  
+> Compliance: [FORGE_CORE_SYNC.md](FORGE_CORE_SYNC.md)  
+> ff-three contributes: `TickContext`, `DeterministicRng`, `AggregateRoot`, 18 determinism tests
 
 This document describes the full system architecture.  For the Plugin vs Driver
 boundary specifically, see [`docs/PLUGIN_VS_DRIVER.md`](docs/PLUGIN_VS_DRIVER.md).
