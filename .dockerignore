@@ -1,0 +1,7 @@
+target/
+.git/
+.env
+.env.local
+infra/node_modules/
+infra/.pulumi/
+*.md
