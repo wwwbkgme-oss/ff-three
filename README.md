@@ -1,9 +1,13 @@
 # ForgeFabrik Academy — ff-three
 
 An event-sourced, deterministic simulation engine for an educational RPG.
-Characters evolve, pursue goals, form memories, and socialize — all driven
+Characters evolve, pursue goals, form memories, and socialise — all driven
 by a replay-safe event log.  An Axum HTTP server exposes the academy to
-students; a free-tier LLM plugin powers AI agents without cloud spend.
+students; free-tier LLM drivers power AI agents without cloud spend.
+
+> Full architecture: **[ARCHITECTURE.md](ARCHITECTURE.md)**
+> Layer boundary spec: **[docs/PLUGIN_VS_DRIVER.md](docs/PLUGIN_VS_DRIVER.md)**
+> Roadmap: **[NEXT.md](NEXT.md)**
 
 ---
 
@@ -11,139 +15,44 @@ students; a free-tier LLM plugin powers AI agents without cloud spend.
 
 ```
 ff-three/
-├── foundation/          Pure primitives — no I/O, no side effects
-│   ├── types/           IDs, WorldTick, traits (Reducer, AggregateRoot), snapshots
-│   └── events/          AcademyEvent, CharacterEvent, EventEnvelope, AcademyCommand
+├── foundation/          Pure primitives — no I/O, no randomness
+│   ├── types/           IDs, WorldTick, TickContext, DeterministicRng,
+│   │                    AggregateRoot, Reducer, CommandContext, EventStore trait
+│   └── events/          CharacterEvent, AcademyEvent, EventEnvelope,
+│                        InMemoryEventStore, AcademyCommand
 │
-├── domain/              Business logic — depends only on foundation
-│   ├── characters/      Character aggregate: GOAP planner, TickEngine, reducer, 17 tests
-│   ├── quests/          Quest generation and progression
-│   ├── world/           World state and knowledge graph
-│   └── agents/          AI agent strategies (pure, no I/O)
+├── domain/              Business logic — deterministic, replay-safe
+│   ├── characters/      Character aggregate: GOAP planner, TickEngine,
+│   │                    CharacterReducer, CharacterCommand, 18 tests
+│   ├── quests/          Quest lifecycle, rules, XP formulae
+│   ├── world/           Biome state engine, knowledge graph
+│   └── agents/          AgentStrategy implementations (pure, no I/O)
 │
-├── runtime/             I/O and infrastructure — depends on foundation + domain
-│   ├── server/          Axum HTTP server, Postgres repos, Redis cache, LLM client
+├── runtime/             I/O and infrastructure
+│   ├── drivers/         I/O adapters  ← not plugins
+│   │   └── llm/         FreeClient: Groq → SambaNova → LLM7 →
+│   │                    OpenRouter → NVIDIA NIM → Ollama
+│   ├── projections/     CharacterView read model
+│   ├── server/          Axum HTTP, Postgres (PgEventStore), Redis,
+│   │                    migration runner, REST routes
 │   └── sandbox/         Code execution sandbox
 │
-├── plugins/             Runtime-loadable extensions
-│   └── plugin-llm-free/ Free-tier LLM provider chain (6 providers, auto-failover)
+├── plugins/             Domain-behaviour extensions (reserved, empty)
+│                        See docs/PLUGIN_VS_DRIVER.md for what goes here
 │
-├── infra/               Pulumi TypeScript — AWS infrastructure
-├── migrations/          4 PostgreSQL migrations (enum types, tables, indexes, seed)
-└── docker-compose.yml   Local dev stack (Postgres + Redis)
+├── migrations/          5 PostgreSQL migrations
+├── infra/               Pulumi TypeScript (AWS)
+└── docs/                Architecture decision records
 ```
 
-### Naming convention for plugins
-
-| Layer | Convention | Example |
-|---|---|---|
-| Folder | `plugins/plugin-{name}/` | `plugins/plugin-llm-free/` |
-| Crate name | `{name}` (no `plugin-` prefix) | `llm-free` |
-| Plugin ID | `forgefabrik.{name}` | `forgefabrik.llm-free` |
-
----
-
-## Architecture principles
-
-### Events are truth. State is projection.
+### The critical boundary
 
 ```
-Command
-  └─► CharacterCommandHandler::handle()   ← validates, emits events
-          └─► Vec<CharacterEvent>
-                  └─► CharacterReducer::apply()   ← pure fold
-                          └─► Character (new state)
+plugins/         = domain-behaviour extensions  (pure, no I/O)
+runtime/drivers/ = infrastructure I/O adapters  (HTTP, storage, …)
 ```
 
-Every mutation is a fact in the event log.  State can be rebuilt from
-scratch by replaying events.  No direct mutations — ever.
-
-### Determinism first
-
-| Rule | Where enforced |
-|---|---|
-| No `Utc::now()` in domain | `foundation/types` layer boundary |
-| No `rand::thread_rng()` in domain | Use `DeterministicRng` (planned, see NEXT.md) |
-| No random IDs in tick logic | `Planner` derives GoalIds via UUIDv5 from `(char_id, tick, discriminant)` |
-| Same `(character, tick)` → same events | 17 determinism tests in `domain/characters/tests/` |
-
-### Layer boundaries
-
-```
-foundation/types   ← no deps outside std + serde + sqlx (serialisation only)
-foundation/events  ← depends on types only
-domain/*           ← depends on foundation only, NO I/O
-runtime/*          ← may depend on everything, I/O lives here
-plugins/*          ← may depend on foundation + domain, I/O allowed
-```
-
----
-
-## Crates
-
-### `foundation/types`
-
-Primitive domain types, IDs, traits, simulation time.
-
-- **`WorldTick(u64)`** — monotonic simulation counter; replaces all wall-clock usage inside `domain/`
-- **`define_id!(Name)`** macro — generates 12 ID newtypes (`CharacterId`, `GoalId`, `LocationId`, …)
-- **`Reducer<S, E>`** — apply one event to state deterministically
-- **`AggregateRoot`** — `handle` (validate command → emit events) + `apply` (project events → state) + `replay`
-- **`CommandContext`** — tick + actor + realm + correlation injected into every command handler
-- **`WorldSnapshot`** + **`DeterministicHash`** — checkpoint and verify world state
-
-### `foundation/events`
-
-All emitted facts.
-
-- **`CharacterEvent`** — 18 variants: lifecycle, movement, goals, memory, social, factions, mood, stats
-- **`AcademyEvent`** — student enroll, quest start/complete, XP, biome, groups, achievements
-- **`EventEnvelope<E>`** — wraps every event with `event_id`, `causation_id`, `correlation_id`, `tick`, `actor`, `realm`
-- **`AcademyCommand`** — intents from students and the system
-
-### `domain/characters`
-
-The character simulation engine.
-
-| Module | Responsibility |
-|---|---|
-| `character.rs` | `Character` aggregate struct — pure data, no side effects |
-| `stats.rs` | `Stats` (health, energy, hunger, fatigue, social\_need), `Mood` |
-| `goals.rs` | `GoalType`, `GoalStack`, `Condition` — GOAP preconditions |
-| `schedule.rs` | `Schedule`, `TimeSlot`, `ScheduledActivity` — daily routine (2 400 ticks/day) |
-| `memory.rs` | `Episode`, `Memory` — weighted, decaying memory with deterministic decay |
-| `relationships.rs` | `RelationshipGraph` — directed trust/affinity edges |
-| `planner.rs` | `Planner::suggest()` — pure GOAP: selects goals from state, deterministic UUIDv5 IDs |
-| `tick.rs` | `TickEngine::tick()` — stat decay → goal injection → goal activation per tick |
-| `reducer.rs` | `AggregateRoot for Character` — full `handle` + `apply` + `CharacterReducer` wrapper |
-| `commands.rs` | `CharacterCommand` enum — move, goals, social, memory, factions |
-
-**Tests:** `domain/characters/tests/determinism.rs` — 17 tests covering planner determinism,
-reducer invariants, stat clamping, goal lifecycle, memory decay, command round-trips, replay.
-
-**Examples:**
-- `cargo run --example basic_npc -p characters`
-- `cargo run --example daily_schedule -p characters`
-
-### `plugins/plugin-llm-free`
-
-Drop-in replacement for `runtime/server/src/llm.rs` backed by free-tier providers only.
-
-**Provider chain (priority order):**
-
-| # | Provider | Free tier | Env var |
-|---|---|---|---|
-| 1 | **Groq** | 14 400 req/day · <100 ms TTFT | `GROQ_API_KEY` |
-| 2 | **SambaNova** | 20–480 RPM · no credit card | `SAMBANOVA_API_KEY` |
-| 3 | **LLM7** | 100 req/hr · free token | `LLM7_API_KEY` |
-| 4 | **OpenRouter** | `:free` models · $0/token | `OPENROUTER_API_KEY` |
-| 5 | **NVIDIA NIM** | 1 000 req/month credits | `NVIDIA_API_KEY` |
-| 6 | **Ollama** | Local inference · always free | `ollama serve` |
-
-`FreeClient::from_env()` auto-detects configured providers and builds the chain.
-`chat()` silently falls through to the next provider on 429 / errors.
-
-Same API as `LlmClient`: `chat()`, `run_quest_generation()`, `run_evaluation()`, `run_hint()`.
+These are **not interchangeable**.  See [`docs/PLUGIN_VS_DRIVER.md`](docs/PLUGIN_VS_DRIVER.md).
 
 ---
 
@@ -151,41 +60,53 @@ Same API as `LlmClient`: `chat()`, `run_quest_generation()`, `run_evaluation()`,
 
 ### Prerequisites
 
-- Rust stable (≥ 1.75)
-- Docker + Docker Compose (for Postgres + Redis)
+- Rust stable ≥ 1.75
+- Docker + Docker Compose
 
-### Run the local stack
+### Start the local stack
 
 ```bash
 docker-compose up -d
 cp .env.example .env
-# Edit .env — set DATABASE_URL, REDIS_URL, and at least one LLM key
+# edit .env — required: DATABASE_URL, REDIS_URL, JWT_SECRET
 cargo run -p server
 ```
 
-### Use a free LLM provider (no OpenAI key needed)
+### Enable LLM features (free, no OpenAI account needed)
+
+Set **any** of these env vars — `FreeClient` auto-detects and chains them:
 
 ```bash
-# Option A — Groq (fastest, 14 400 req/day free)
-export GROQ_API_KEY=gsk_...     # console.groq.com
+# Option A — Groq (fastest, 14 400 req/day)
+export GROQ_API_KEY=gsk_...         # console.groq.com
 
 # Option B — SambaNova (no credit card)
-export SAMBANOVA_API_KEY=...    # cloud.sambanova.ai
+export SAMBANOVA_API_KEY=...        # cloud.sambanova.ai
 
-# Option C — Ollama (fully local)
-ollama pull llama3.2
-ollama serve
+# Option C — LLM7 free gateway
+export LLM7_API_KEY=...             # token.llm7.io
+
+# Option D — OpenRouter :free models
+export OPENROUTER_API_KEY=sk-or-... # openrouter.ai/keys
+
+# Option E — NVIDIA NIM (1 000 req/month)
+export NVIDIA_API_KEY=nvapi-...     # build.nvidia.com
+
+# Option F — Ollama (fully local, no account)
+ollama pull llama3.2 && ollama serve
 ```
 
-Then replace `LlmClient::new(...)` in `runtime/server` with `FreeClient::from_env()`.
+Multiple providers can be active simultaneously — the driver tries them in
+the order above, falling back silently on 429s.
 
-### Run character tests
+### Run tests
 
 ```bash
-cargo test -p characters
+cargo test -p characters       # 18 determinism tests
+cargo test                     # full workspace
 ```
 
-### Run the examples
+### Run examples
 
 ```bash
 cargo run --example basic_npc       -p characters
@@ -194,24 +115,95 @@ cargo run --example daily_schedule  -p characters
 
 ---
 
-## Database
+## Environment variables
 
-Four migrations in `migrations/`:
+### Required
 
-| File | Content |
-|---|---|
-| `001_enum_types.sql` | Postgres enums: `biome_domain`, `biome_state`, `quest_type`, … |
-| `002_tables.sql` | students, biomes, quests, sandbox\_runs, groups, achievements, certifications |
-| `003_indexes.sql` | Performance indexes |
-| `004_seed_biomes.sql` | Seed biomes (Python, Algorithms, Systems, Web, Data, Security) |
+| Variable       | Example                                 | Description          |
+|----------------|-----------------------------------------|----------------------|
+| `DATABASE_URL` | `postgres://user:pass@localhost/forge`  | PostgreSQL DSN       |
+| `REDIS_URL`    | `redis://localhost:6379`                | Redis DSN            |
+| `JWT_SECRET`   | 64-byte hex (`openssl rand -hex 64`)    | Token signing secret |
 
-Apply with `sqlx migrate run` (DATABASE\_URL must be set).
+### LLM providers (one or more recommended)
+
+| Variable             | Provider     | Free tier                      |
+|----------------------|--------------|--------------------------------|
+| `GROQ_API_KEY`       | Groq Cloud   | 14 400 req/day, <100 ms TTFT   |
+| `SAMBANOVA_API_KEY`  | SambaNova    | 20–480 RPM, no credit card     |
+| `LLM7_API_KEY`       | LLM7.io      | 100 req/hr, free token         |
+| `OPENROUTER_API_KEY` | OpenRouter   | `:free` models, $0/token       |
+| `NVIDIA_API_KEY`     | NVIDIA NIM   | 1 000 req/month credits        |
+| `OLLAMA_HOST`        | Ollama local | always free, `ollama serve`    |
+
+### Optional
+
+| Variable                | Default | Description                  |
+|-------------------------|---------|------------------------------|
+| `APP_HOST`              | 0.0.0.0 | Listen address               |
+| `APP_PORT`              | 8080    | Listen port                  |
+| `SANDBOX_TIMEOUT_SECS`  | 30      | Max wall time per submission |
+| `SANDBOX_MAX_MEMORY_MB` | 128     | Max RSS per submission       |
+| `OLLAMA_HOST`           | http://localhost:11434 | Ollama base URL |
 
 ---
 
-## Infrastructure
+## Database
 
-`infra/` is a Pulumi TypeScript stack targeting AWS.  See `infra/README.md`.
+Five migrations in `migrations/`:
+
+| File | Content |
+|---|---|
+| `001_enum_types.sql` | Postgres enums: `biome_domain`, `quest_type`, … |
+| `002_tables.sql` | students, biomes, quests, sandbox\_runs, groups, achievements |
+| `003_indexes.sql` | Performance indexes |
+| `004_seed_biomes.sql` | Six starting biomes (Python, Algorithms, Systems, …) |
+| `005_event_store.sql` | `event_streams` + `events` (append-only log) |
+
+Apply: `sqlx migrate run` (requires `DATABASE_URL`).
+
+---
+
+## Key concepts
+
+### WorldTick
+
+`WorldTick(u64)` — monotonic simulation counter, replaces all wall-clock usage
+inside `domain/`.  One tick = one logical step; duration is runtime-defined
+(default: 1 Hz → 2 400 ticks/day).
+
+### TickContext
+
+```rust
+pub struct TickContext {
+    pub tick:        WorldTick,  // absolute counter
+    pub realm:       RealmId,    // world shard
+    pub rng_seed:    u64,        // deterministic RNG seed for this tick
+    pub delta_ticks: u64,        // 1 normally; larger during catch-up
+}
+```
+
+Passed to `TickEngine::tick()` and `Planner::suggest()`.  The domain never
+calls `Utc::now()` or `thread_rng()` — all non-determinism enters through here.
+
+### Character.version
+
+Every `Character` carries `version: u64` (= events applied since birth).
+Used as the optimistic concurrency guard for `PgEventStore::append`.
+
+### DeterministicRng
+
+Xorshift64* PRNG seeded from `(global_seed, tick, entity_id)`.  Use this
+anywhere in `domain/` where randomness is needed.  **Never** call
+`rand::thread_rng()` inside `domain/`.
+
+---
+
+## Architecture references
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — full system architecture
+- [`docs/PLUGIN_VS_DRIVER.md`](docs/PLUGIN_VS_DRIVER.md) — frozen boundary spec
+- [`NEXT.md`](NEXT.md) — roadmap and P2 sprint plan
 
 ---
 
