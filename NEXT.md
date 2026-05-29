@@ -62,9 +62,13 @@ Json(CharacterView::from_character(&char, current_tick, stored.last_offset()))
 
 ---
 
-### P2.2 · World simulation loop
+### ~~P2.2 · World simulation loop~~ ✅ `sim/tick_worker.rs` + in `main.rs` gestartet
 
-Background task in `runtime/server/src/sim/tick_worker.rs`:
+1 Hz Tokio-Task: TickEngine::tick → PgEventStore::append. OCC-Guard aktiv.
+
+---
+
+### P2.2 (archived reference)
 
 ```rust
 loop {
@@ -84,9 +88,13 @@ loop {
 
 ---
 
-### P2.3 · Projection catch-up worker
+### ~~P2.3 · Projection catch-up worker~~ ✅ `sim/projection_worker.rs` + Migration 006
 
-`runtime/server/src/sim/projection_worker.rs`:
+500 ms Polling, load_since(checkpoint) → character_views UPSERT.
+
+---
+
+### P2.3 (archived reference)
 Polls `store.load_since(checkpoint)`, applies to `CharacterView`, upserts
 into a `character_views` table, advances checkpoint.
 
