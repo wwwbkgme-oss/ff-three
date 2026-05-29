@@ -6,7 +6,9 @@
 pub mod errors;
 pub mod ids;
 pub mod models;
+pub mod rng;
 pub mod snapshot;
+pub mod tick_context;
 pub mod time;
 pub mod traits;
 
@@ -34,6 +36,8 @@ pub use models::student::{
 pub use traits::{AggregateRoot, AgentStrategy, CommandContext, CommandHandler, Reducer};
 pub use snapshot::{DeterministicHash, WorldSnapshot};
 pub use time::{WorldTick, DAY_LENGTH_TICKS, day_fraction_to_tick, tick_of_day};
+pub use rng::DeterministicRng;
+pub use tick_context::TickContext;
 pub use ids::{
     // existing
     AchievementId, AssessmentId, BiomeId, CertificationId,
