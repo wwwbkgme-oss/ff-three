@@ -31,10 +31,20 @@ Ordered by urgency.  ✅ = done on this branch.
 
 ## P2 — Next sprint
 
-### P2.1 · Fill character REST handlers
+### ~~P2.1 · Fill character REST handlers~~ ✅ `9641d15`
 
-The five routes compile but return `NOT_IMPLEMENTED`.
-Wire through `PgEventStore`:
+All five routes wired through `PgEventStore`:
+- `spawn`: `CharacterEvent::Created` → `append(NoStream)`
+- `get_character`: `load_stream` → `CharacterReducer::replay` → `CharacterSummary`
+- `tick_character`: `TickEngine::tick` → `append(Exact(version))` → projizierter Zustand
+- `get_goals`: replay → GoalStack summary
+- `get_memory`: replay → salient episodes
+
+OCC-Guard aktiv: `ExpectedVersion::Exact(char.version)` verhindert concurrent writes.
+
+---
+
+### P2.1 (archived reference)
 
 ```rust
 // POST /characters
