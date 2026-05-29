@@ -6,7 +6,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
 use agents::Orchestrator;
-use llm_free::FreeClient;
+use drivers::FreeClient;
 
 use crate::config::AppConfig;
 

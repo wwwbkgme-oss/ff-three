@@ -1,6 +1,6 @@
 [package]
 name        = "server"
-description = "Academy runtime – Axum HTTP server, DB repositories, LLM client"
+description = "ForgeFabrik Academy – Axum HTTP server, DB repositories, simulation runtime"
 version.workspace = true
 edition.workspace = true
 
@@ -9,32 +9,32 @@ name = "server"
 path = "src/main.rs"
 
 [dependencies]
-types   = { workspace = true }
-events  = { workspace = true }
-quests  = { workspace = true }
-world   = { workspace = true }
-agents  = { workspace = true }
+types       = { workspace = true }
+events      = { workspace = true }
+quests      = { workspace = true }
+world       = { workspace = true }
+agents      = { workspace = true }
 sandbox     = { workspace = true }
-llm-free    = { workspace = true }
-async-trait = { workspace = true }
 characters  = { workspace = true }
 projections = { workspace = true }
-axum       = { workspace = true }
-tokio      = { workspace = true }
-tower      = { workspace = true }
-tower-http = { workspace = true }
-redis      = { workspace = true }
-sqlx       = { workspace = true }
-reqwest    = { workspace = true }
-serde      = { workspace = true }
-serde_json = { workspace = true }
-uuid       = { workspace = true }
-chrono     = { workspace = true }
-sha2       = { workspace = true }
-hex        = { workspace = true }
-rand       = { workspace = true }
-dotenvy    = { workspace = true }
-anyhow     = { workspace = true }
-thiserror  = { workspace = true }
+drivers     = { workspace = true }       # I/O adapters (LLM, future: storage, notify)
+async-trait = { workspace = true }
+axum        = { workspace = true }
+tokio       = { workspace = true }
+tower       = { workspace = true }
+tower-http  = { workspace = true }
+redis       = { workspace = true }
+sqlx        = { workspace = true }
+reqwest     = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+uuid        = { workspace = true }
+chrono      = { workspace = true }
+sha2        = { workspace = true }
+hex         = { workspace = true }
+rand        = { workspace = true }
+dotenvy     = { workspace = true }
+anyhow      = { workspace = true }
+thiserror   = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }

@@ -1,5 +1,7 @@
 [workspace]
-members  = ["foundation/*", "domain/*", "runtime/*", "plugins/*"]
+# plugins/* kept in members for future domain-behaviour extensions,
+# but no plugin crates exist yet — LLM providers moved to runtime/drivers.
+members  = ["foundation/*", "domain/*", "runtime/*"]
 resolver = "2"
 
 [workspace.package]
@@ -27,7 +29,7 @@ redis        = { version = "0.25", features = ["tokio-comp", "aio"] }
 axum         = { version = "0.7",  features = ["macros"] }
 tower        = "0.4"
 tower-http   = { version = "0.5",  features = ["cors", "trace", "request-id"] }
-# HTTP client for LLM (runtime only)
+# HTTP client — used by runtime/drivers for LLM I/O
 reqwest      = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 # Errors
 anyhow       = "1"
@@ -42,12 +44,12 @@ dotenvy      = "0.15"
 tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # ── Internal crates ────────────────────────────────────────────────────────────
-types   = { path = "foundation/types" }
-events  = { path = "foundation/events" }
-quests  = { path = "domain/quests" }
-world   = { path = "domain/world" }
-agents  = { path = "domain/agents" }
+types       = { path = "foundation/types" }
+events      = { path = "foundation/events" }
+quests      = { path = "domain/quests" }
+world       = { path = "domain/world" }
+agents      = { path = "domain/agents" }
 sandbox     = { path = "runtime/sandbox" }
 characters  = { path = "domain/characters" }
-llm-free    = { path = "plugins/plugin-llm-free" }
+drivers     = { path = "runtime/drivers" }
 projections = { path = "runtime/projections" }
