@@ -1,15 +1,6 @@
 //! `basic_npc` — quick-start example for the `characters` crate.
 //!
-//! Demonstrates:
-//! - Creating an NPC with `Character::new_npc`.
-//! - Issuing commands via the `AggregateRoot` command handler.
-//! - Applying returned events through `CharacterReducer`.
-//! - Running 5 simulation ticks with the `TickEngine`.
-//!
-//! Run with:
-//! ```
-//! cargo run --example basic_npc -p characters
-//! ```
+//! Run with: cargo run --example basic_npc -p characters
 
 use characters::{
     commands::CharacterCommand,
@@ -20,77 +11,55 @@ use characters::{
 use events::ConversationOutcome;
 use types::{
     traits::{AggregateRoot, CommandContext, Reducer},
-    CharacterId, LocationId, WorldTick,
+    CharacterId, LocationId, TickContext, WorldTick,
 };
 
 fn main() {
-    // ── Create the NPC ─────────────────────────────────────────────────────────
-    let npc_id   = CharacterId::new();
-    let start_loc = LocationId::new();
     let mut npc = characters::character::Character::new_npc(
-        npc_id, "Aldric the Baker", start_loc, WorldTick::ZERO,
+        CharacterId::new(), "Aldric the Baker", LocationId::new(), WorldTick::ZERO,
     );
 
-    println!("=== basic_npc example ===");
-    println!("NPC:      {} ({})", npc.name, npc.id);
-    println!("Location: {}", npc.location);
-    println!("Stats:    health={} energy={} hunger={} fatigue={}\n",
+    println!("=== basic_npc ===");
+    println!("NPC: {} ({})", npc.name, npc.id);
+    println!("Stats: health={} energy={} hunger={} fatigue={}\n",
              npc.stats.health, npc.stats.energy, npc.stats.hunger, npc.stats.fatigue);
 
-    // ── Assign a custom quest goal ─────────────────────────────────────────────
-    let ctx = CommandContext::test_context(WorldTick(1));
+    // Assign a quest goal
+    let cctx = CommandContext::test_context(WorldTick(1));
     let goal = characters::goals::Goal::new(
-        GoalType::CompleteQuest("deliver_bread".to_string()), 70, WorldTick(1),
+        GoalType::CompleteQuest("deliver_bread".into()), 70, WorldTick(1),
     );
-    let events = npc.handle(CharacterCommand::AssignGoal { goal }, &ctx).unwrap();
-    for e in &events { npc = CharacterReducer::apply(npc, e); }
+    let evs = npc.handle(CharacterCommand::AssignGoal { goal }, &cctx).unwrap();
+    for e in &evs { npc = CharacterReducer::apply(npc, e); }
+    println!("After AssignGoal: pending={} active={:?}\n",
+             npc.goals.pending.len(), npc.goals.active.as_ref().map(|g| &g.kind));
 
-    println!("After AssignGoal:");
-    println!("  pending goals: {}", npc.goals.pending.len());
-    println!("  active goal:   {:?}\n", npc.goals.active.as_ref().map(|g| &g.kind));
-
-    // ── Run 5 ticks ───────────────────────────────────────────────────────────
-    println!("Simulating 5 ticks (starting at tick 700 = work-hours start):");
+    // Run 5 ticks
+    println!("5 ticks starting at tick 700 (work hours):");
     for t in 700u64..705 {
-        let tick = WorldTick(t);
-        let tick_events = TickEngine::tick(&npc, tick);
-        println!("  tick {:4}: {} events emitted", t, tick_events.len());
-        for e in &tick_events { npc = CharacterReducer::apply(npc, e); }
+        let tctx = TickContext::test(t);
+        let evs = TickEngine::tick(&npc, &tctx);
+        println!("  tick {t}: {} events", evs.len());
+        for e in &evs { npc = CharacterReducer::apply(npc, e); }
     }
+    println!("\nFinal: health={} energy={} hunger={} fatigue={} version={}",
+             npc.stats.health, npc.stats.energy, npc.stats.hunger, npc.stats.fatigue, npc.version);
+    println!("activity: {:?}", npc.activity);
 
-    println!();
-    println!("Final state:");
-    println!("  health={} energy={} hunger={} fatigue={}",
-             npc.stats.health, npc.stats.energy, npc.stats.hunger, npc.stats.fatigue);
-    println!("  activity: {:?}", npc.activity);
-    println!("  active goal: {:?}", npc.goals.active.as_ref().map(|g| &g.kind));
-    println!("  pending goals: {}", npc.goals.pending.len());
-
-    // ── Social interaction ────────────────────────────────────────────────────
-    let ctx2 = CommandContext::test_context(WorldTick(800));
-    let stranger = CharacterId::new();
-
-    println!("\nConversation with stranger {}:", stranger);
-    let start_events = npc
-        .handle(CharacterCommand::StartConversation { with: stranger }, &ctx2)
-        .unwrap();
-    for e in &start_events { npc = CharacterReducer::apply(npc, e); }
+    // Conversation
+    let partner = CharacterId::new();
+    let cctx2 = CommandContext::test_context(WorldTick(800));
+    println!("\nConversation with {}:", partner);
+    let evs = npc.handle(CharacterCommand::StartConversation { with: partner }, &cctx2).unwrap();
+    for e in &evs { npc = CharacterReducer::apply(npc, e); }
     println!("  activity: {:?}", npc.activity);
 
-    let ctx3 = CommandContext::test_context(WorldTick(810));
-    let end_events = npc
-        .handle(
-            CharacterCommand::EndConversation {
-                with:    stranger,
-                outcome: ConversationOutcome::Friendly,
-            },
-            &ctx3,
-        )
-        .unwrap();
-    for e in &end_events { npc = CharacterReducer::apply(npc, e); }
-
-    if let Some(rel) = npc.relationships.get(stranger) {
-        println!("  relationship: trust={:.2} affinity={:.2}", rel.trust, rel.affinity);
+    let cctx3 = CommandContext::test_context(WorldTick(810));
+    let evs = npc.handle(CharacterCommand::EndConversation {
+        with: partner, outcome: ConversationOutcome::Friendly,
+    }, &cctx3).unwrap();
+    for e in &evs { npc = CharacterReducer::apply(npc, e); }
+    if let Some(r) = npc.relationships.get(partner) {
+        println!("  trust={:.2} affinity={:.2}", r.trust, r.affinity);
     }
-    println!("  activity: {:?}", npc.activity);
 }
