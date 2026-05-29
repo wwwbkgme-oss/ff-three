@@ -15,10 +15,16 @@ use crate::{
 /// All mutations arrive as `CharacterEvent` values applied by `CharacterReducer`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Character {
-    pub id:            CharacterId,
-    pub name:          String,
-    pub kind:          CharacterKind,
-    pub stats:         Stats,
+    pub id:      CharacterId,
+    /// Number of `CharacterEvent`s applied since initial state.
+    ///
+    /// Used for optimistic concurrency: pass `ExpectedVersion::Exact(version)`
+    /// to `EventStore::append` before writing new events.
+    /// Incremented by `CharacterReducer::apply` after every event.
+    pub version: u64,
+    pub name:    String,
+    pub kind:    CharacterKind,
+    pub stats:   Stats,
     /// What the character is doing right now.
     pub activity:      Activity,
     pub location:      LocationId,
@@ -28,8 +34,8 @@ pub struct Character {
     pub relationships: RelationshipGraph,
     pub mood:          Mood,
     pub faction:       Option<FactionId>,
-    /// Deterministic birth tick – used for age and time calculations.
-    pub born_at:       WorldTick,
+    /// Deterministic birth tick – used for age calculations.
+    pub born_at: WorldTick,
 }
 
 impl Character {
@@ -42,16 +48,17 @@ impl Character {
     ) -> Self {
         Self {
             id,
-            name: name.into(),
-            kind: CharacterKind::Npc,
-            stats: Stats::default(),
+            version:  0,
+            name:     name.into(),
+            kind:     CharacterKind::Npc,
+            stats:    Stats::default(),
             activity: Activity::Idle,
             location,
-            goals: GoalStack::default(),
-            schedule: Schedule::default_npc(),
-            memory: Memory::default(),
+            goals:         GoalStack::default(),
+            schedule:      Schedule::default_npc(),
+            memory:        Memory::default(),
             relationships: RelationshipGraph::default(),
-            mood: Mood::Calm,
+            mood:    Mood::Calm,
             faction: None,
             born_at,
         }
@@ -66,13 +73,9 @@ impl Character {
 /// Classification of the character's controller.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CharacterKind {
-    /// Controlled by a human player.
     Player,
-    /// Deterministic NPC driven by schedule + goals.
     Npc,
-    /// LLM-augmented agent (goal selection assisted by runtime/agents).
     Agent,
-    /// Player companion.
     Companion,
 }
 
@@ -80,7 +83,6 @@ pub enum CharacterKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Activity {
     Idle,
-    /// Executing the goal at the top of the stack.
     ExecutingGoal(types::GoalId),
     Traveling { to: LocationId },
     Conversing { with: CharacterId },
