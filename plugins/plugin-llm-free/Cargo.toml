@@ -1,0 +1,26 @@
+[package]
+name        = "llm-free"
+description = "ForgeFabrik LLM plugin – free-tier provider chain (Groq, SambaNova, LLM7, OpenRouter, NVIDIA NIM, Ollama)"
+version.workspace = true
+edition.workspace = true
+
+# ── Convention (from BKG architecture discussion) ─────────────────────────────
+# Folder:      plugins/plugin-llm-free/
+# Crate name:  llm-free          (no plugin- prefix)
+# Plugin ID:   forgefabrik.llm-free
+
+[lib]
+name = "llm_free"
+
+[dependencies]
+# HTTP
+reqwest    = { workspace = true }
+tokio      = { workspace = true }
+# Serialisation
+serde      = { workspace = true }
+serde_json = { workspace = true }
+# Errors
+anyhow     = { workspace = true }
+thiserror  = { workspace = true }
+# Observability
+tracing    = { workspace = true }

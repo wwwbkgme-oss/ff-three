@@ -1,5 +1,5 @@
 [workspace]
-members  = ["foundation/*", "domain/*", "runtime/*"]
+members  = ["foundation/*", "domain/*", "runtime/*", "plugins/*"]
 resolver = "2"
 
 [workspace.package]
@@ -15,7 +15,7 @@ async-trait  = "0.1"
 serde        = { version = "1",    features = ["derive"] }
 serde_json   = "1"
 # Primitives
-uuid         = { version = "1",    features = ["v4", "serde"] }
+uuid         = { version = "1",    features = ["v4", "v5", "serde"] }
 chrono       = { version = "0.4",  features = ["serde"] }
 # Database (runtime only – allowed in foundation as a serialisation concern)
 sqlx = { version = "0.7", features = [
@@ -47,4 +47,6 @@ events  = { path = "foundation/events" }
 quests  = { path = "domain/quests" }
 world   = { path = "domain/world" }
 agents  = { path = "domain/agents" }
-sandbox = { path = "runtime/sandbox" }
+sandbox    = { path = "runtime/sandbox" }
+characters = { path = "domain/characters" }
+llm-free   = { path = "plugins/plugin-llm-free" }

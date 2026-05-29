@@ -230,6 +230,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "characters"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "events",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "types",
+ "uuid",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -989,6 +1002,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
+name = "llm-free"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1259,8 +1285,10 @@ name = "quests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "events",
  "types",
+ "uuid",
 ]
 
 [[package]]
@@ -2543,6 +2571,7 @@ dependencies = [
  "getrandom 0.4.2",
  "js-sys",
  "serde_core",
+ "sha1_smol",
  "wasm-bindgen",
 ]
 
@@ -3117,8 +3146,10 @@ name = "world"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "events",
  "types",
+ "uuid",
 ]
 
 [[package]]
