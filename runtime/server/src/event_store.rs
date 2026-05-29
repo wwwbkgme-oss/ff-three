@@ -35,6 +35,8 @@ pub struct PgEventStore {
 
 impl PgEventStore {
     pub fn new(pool: PgPool) -> Self { Self { pool } }
+    /// Gibt die interne Pool-Referenz zurück (für Raw-Queries).
+    pub fn pool(&self) -> &PgPool { &self.pool }
 }
 
 #[derive(Debug, thiserror::Error)]
