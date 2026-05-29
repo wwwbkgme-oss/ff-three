@@ -47,6 +47,12 @@ impl From<redis::RedisError> for ServerError {
     fn from(e: redis::RedisError) -> Self { ServerError::Cache(e) }
 }
 
+impl From<serde_json::Error> for ServerError {
+    fn from(e: serde_json::Error) -> Self {
+        ServerError::Internal(anyhow::Error::from(e))
+    }
+}
+
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
         let (status, msg) = match &self {

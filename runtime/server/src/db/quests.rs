@@ -62,6 +62,12 @@ pub async fn count_completed(pool: &PgPool, sid: Uuid) -> DbResult<i64> {
     Ok(n)
 }
 
+pub async fn get_student_quest(pool: &PgPool, sid: Uuid, qid: Uuid) -> DbResult<Option<StudentQuest>> {
+    Ok(sqlx::query_as::<_, StudentQuest>(
+        "SELECT * FROM student_quests WHERE student_id=$1 AND quest_id=$2"
+    ).bind(sid).bind(qid).fetch_optional(pool).await?)
+}
+
 pub async fn recent_scores(pool: &PgPool, sid: Uuid, limit: i64) -> DbResult<Vec<f64>> {
     let rows: Vec<(f64,)> = sqlx::query_as(
         "SELECT a.score FROM assessments a \
