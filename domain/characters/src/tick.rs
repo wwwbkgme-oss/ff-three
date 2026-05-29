@@ -6,68 +6,41 @@
 //!
 //! **Rules (enforced by this module):**
 //! - No side effects, no I/O, no wall-clock time.
-//! - Same `(character, tick)` → same events, always.
+//! - Same `(character, ctx)` → same events, always.
 //! - The caller applies the returned events via `CharacterReducer`.
 //!
 //! ## Ordering within one tick
 //!
-//! 1. **Passive stat decay** — `StatsUpdated` (hunger/fatigue accumulate,
-//!    energy drains).  Skipped when all deltas would be zero.
-//! 2. **Goal injection** — `GoalAdded` for any planner-suggested goals not
-//!    already on the stack.
-//! 3. **Goal activation** — `GoalActivated` for the highest-priority pending
-//!    goal whose preconditions are currently met (post-stat-decay state is
-//!    used for precondition checking, as the caller applies events in order).
+//! 1. **Passive stat decay** — `StatsUpdated`.  Skipped when all deltas are zero.
+//! 2. **Goal injection** — `GoalAdded` for planner-suggested goals.
+//! 3. **Goal activation** — `GoalActivated` for the highest-priority pending goal.
 
 use events::{CharacterEvent, SerializedGoal};
-use types::WorldTick;
+use types::TickContext;
 
 use crate::{character::Character, planner::Planner, schedule::ScheduledActivity};
 
-// ── Passive stat constants ─────────────────────────────────────────────────────
-//
-// These are intentionally small so that a single tick has minimal observable
-// impact; interesting behaviour emerges over hundreds of ticks.
-
-/// Hunger increase per tick while awake.
-const HUNGER_PER_TICK: i32 = 1;
-/// Fatigue increase per tick while awake and active.
-const FATIGUE_PER_TICK: i32 = 1;
-/// Energy loss per tick while awake and active.
-const ENERGY_PER_TICK: i32 = -1;
-
-/// Fatigue recovery per tick while sleeping (negative = decreases fatigue).
+const HUNGER_PER_TICK:        i32 = 1;
+const FATIGUE_PER_TICK:       i32 = 1;
+const ENERGY_PER_TICK:        i32 = -1;
 const SLEEP_FATIGUE_RECOVERY: i32 = -5;
-/// Energy recovery per tick while sleeping.
-const SLEEP_ENERGY_RECOVERY: i32 = 3;
-
-/// Hunger reduction per tick while eating.
-const EAT_HUNGER_REDUCTION: i32 = -8;
-
-/// Social-need reduction per tick while socialising.
+const SLEEP_ENERGY_RECOVERY:  i32 = 3;
+const EAT_HUNGER_REDUCTION:   i32 = -8;
 const SOCIAL_RECOVERY_PER_TICK: i32 = -2;
 
-/// Stateless tick-processing engine.
 pub struct TickEngine;
 
 impl TickEngine {
-    /// Process one simulation tick for `character` at time `tick`.
-    ///
-    /// Returns the events emitted this tick.  The caller **must** apply them
-    /// through `CharacterReducer` before calling `tick` again.
-    pub fn tick(character: &Character, tick: WorldTick) -> Vec<CharacterEvent> {
+    /// Process one simulation tick for `character`.
+    pub fn tick(character: &Character, ctx: &TickContext) -> Vec<CharacterEvent> {
+        let tick = ctx.tick;
         let mut events: Vec<CharacterEvent> = Vec::new();
 
-        // ── 1. Passive stat decay ─────────────────────────────────────────────
+        // 1. Passive stat decay
         let (health_d, energy_d, hunger_d, fatigue_d, social_d) =
-            Self::passive_deltas(character, tick);
+            Self::passive_deltas(character, ctx);
 
-        if health_d != 0
-            || energy_d != 0
-            || hunger_d != 0
-            || fatigue_d != 0
-            || social_d != 0
-        {
+        if health_d != 0 || energy_d != 0 || hunger_d != 0 || fatigue_d != 0 || social_d != 0 {
             events.push(CharacterEvent::StatsUpdated {
                 character_id:  character.id,
                 health_delta:  health_d,
@@ -79,11 +52,11 @@ impl TickEngine {
             });
         }
 
-        // ── 2. Goal injection ─────────────────────────────────────────────────
-        for goal in Planner::suggest(character, tick) {
+        // 2. Goal injection
+        for goal in Planner::suggest(character, ctx) {
             events.push(CharacterEvent::GoalAdded {
                 character_id: character.id,
-                goal:         SerializedGoal {
+                goal: SerializedGoal {
                     id:       goal.id,
                     kind:     goal.kind.display_name().to_string(),
                     priority: goal.priority,
@@ -93,14 +66,9 @@ impl TickEngine {
             });
         }
 
-        // ── 3. Goal activation ────────────────────────────────────────────────
-        // Activate the highest-priority pending goal whose preconditions are
-        // satisfied — but only if no goal is already active.
+        // 3. Goal activation
         if character.goals.active.is_none() {
-            if let Some(next) = character
-                .goals
-                .pending
-                .iter()
+            if let Some(next) = character.goals.pending.iter()
                 .find(|g| g.preconditions_met(&character.stats) && !g.is_expired(tick))
             {
                 events.push(CharacterEvent::GoalActivated {
@@ -114,44 +82,13 @@ impl TickEngine {
         events
     }
 
-    /// Compute passive stat deltas for one tick given the character's schedule.
-    ///
-    /// Returns `(health, energy, hunger, fatigue, social)` — all signed.
-    fn passive_deltas(
-        character: &Character,
-        tick: WorldTick,
-    ) -> (i32, i32, i32, i32, i32) {
-        let activity = character.schedule.activity_at(tick);
+    fn passive_deltas(character: &Character, ctx: &TickContext) -> (i32, i32, i32, i32, i32) {
+        let activity = character.schedule.activity_at(ctx.tick);
         match activity {
-            ScheduledActivity::Sleep => (
-                0,
-                SLEEP_ENERGY_RECOVERY,
-                0,                      // hunger paused while sleeping
-                SLEEP_FATIGUE_RECOVERY,
-                0,
-            ),
-            ScheduledActivity::Eat => (
-                0,
-                0,
-                EAT_HUNGER_REDUCTION,
-                FATIGUE_PER_TICK,       // eating doesn't rest the character
-                0,
-            ),
-            ScheduledActivity::Social => (
-                0,
-                ENERGY_PER_TICK,
-                HUNGER_PER_TICK,
-                FATIGUE_PER_TICK,
-                SOCIAL_RECOVERY_PER_TICK,
-            ),
-            // Work / Leisure / Commute / Custom all follow the baseline decay.
-            _ => (
-                0,
-                ENERGY_PER_TICK,
-                HUNGER_PER_TICK,
-                FATIGUE_PER_TICK,
-                0,
-            ),
+            ScheduledActivity::Sleep  => (0, SLEEP_ENERGY_RECOVERY, 0, SLEEP_FATIGUE_RECOVERY, 0),
+            ScheduledActivity::Eat    => (0, 0, EAT_HUNGER_REDUCTION, FATIGUE_PER_TICK, 0),
+            ScheduledActivity::Social => (0, ENERGY_PER_TICK, HUNGER_PER_TICK, FATIGUE_PER_TICK, SOCIAL_RECOVERY_PER_TICK),
+            _                         => (0, ENERGY_PER_TICK, HUNGER_PER_TICK, FATIGUE_PER_TICK, 0),
         }
     }
 }
