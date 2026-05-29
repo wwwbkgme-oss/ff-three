@@ -1,0 +1,14 @@
+[package]
+name        = "characters"
+description = "Academy domain – character system (NPC state, memory, goals, schedule, relationships)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+types     = { workspace = true }
+events    = { workspace = true }
+serde     = { workspace = true }
+serde_json = { workspace = true }
+uuid      = { workspace = true }
+anyhow    = { workspace = true }
+thiserror = { workspace = true }
