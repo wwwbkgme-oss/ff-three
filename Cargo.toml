@@ -1,5 +1,5 @@
 [workspace]
-members  = ["foundation/*", "domain/*", "runtime/*"]
+members  = ["foundation/*", "domain/*", "runtime/*", "plugins/*"]
 resolver = "2"
 
 [workspace.package]
@@ -49,3 +49,4 @@ world   = { path = "domain/world" }
 agents  = { path = "domain/agents" }
 sandbox    = { path = "runtime/sandbox" }
 characters = { path = "domain/characters" }
+llm-free   = { path = "plugins/plugin-llm-free" }
