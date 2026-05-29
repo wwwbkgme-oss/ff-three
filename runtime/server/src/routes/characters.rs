@@ -1,10 +1,6 @@
 //! Character routes — REST API for the character simulation domain.
 //!
-//! All mutations go through the `AggregateRoot` command handler;
-//! reads are served from the `CharacterView` projection.
-//!
 //! ## Endpoints
-//!
 //! ```text
 //! POST /characters             — spawn a new NPC
 //! GET  /characters/:id         — fetch CharacterView
@@ -12,6 +8,10 @@
 //! GET  /characters/:id/goals   — goal stack summary
 //! GET  /characters/:id/memory  — salient memory episodes
 //! ```
+//!
+//! All mutations flow through `AggregateRoot::handle` → `EventStore::append`
+//! → `CharacterReducer::apply`. The handler never mutates Character state
+//! directly — only via the event pipeline.
 
 use axum::{
     extract::{Path, State},
@@ -24,24 +24,23 @@ use uuid::Uuid;
 
 use characters::{
     character::Character,
-    reducer::CharacterReducer,
     tick::TickEngine,
 };
+use events::{CharacterEvent, CharacterKind as EvtKind, EventStore, ExpectedVersion, StreamId};
 use types::{
-    traits::Reducer,
+    traits::{AggregateRoot, CommandContext, Reducer},
     CharacterId, LocationId, TickContext, WorldTick,
 };
+use characters::reducer::CharacterReducer;
 
-use crate::{error::ServerResult, state::AppState};
+use crate::{error::ServerResult, event_store::PgEventStore, state::AppState};
 
-// ── Request / response DTOs ───────────────────────────────────────────────────
+// ── DTOs ──────────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct SpawnRequest {
     pub name:     String,
-    /// Optional starting location UUID; defaults to a new random location.
     pub location: Option<Uuid>,
-    /// Tick at which the character is born; defaults to 0.
     pub born_at:  Option<u64>,
 }
 
@@ -74,7 +73,6 @@ impl CharacterSummary {
 
 #[derive(Deserialize)]
 pub struct TickRequest {
-    /// Absolute simulation tick.
     pub tick: u64,
 }
 
@@ -82,6 +80,7 @@ pub struct TickRequest {
 pub struct TickResponse {
     pub events_applied: usize,
     pub character:      CharacterSummary,
+    pub new_version:    u64,
 }
 
 #[derive(Serialize)]
@@ -102,56 +101,157 @@ pub struct EpisodeSummary {
     pub weight:  f32,
 }
 
-// ── In-memory character store (stub — replace with PgEventStore) ──────────────
-//
-// For now characters live in process memory.  Once PgEventStore is wired into
-// AppState, handlers should load/save through the event store instead.
+// ── Shared helper: load + replay Character from event store ──────────────────
 
-use std::{collections::HashMap, sync::{Arc, RwLock}};
+async fn load_character(store: &PgEventStore, id: Uuid) -> Result<Character, StatusCode> {
+    let stream  = StreamId::from_uuid(id);
+    let stored  = store.load_stream(stream).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-type CharacterStore = Arc<RwLock<HashMap<CharacterId, Character>>>;
+    if stored.is_empty() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let char_id   = CharacterId::from(id);
+    let initial   = Character::new_npc(char_id, "", LocationId::new(), WorldTick(0));
+    let character = stored.iter().try_fold(initial, |state, ev| {
+        let event: CharacterEvent = ev.deserialize()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        Ok::<_, StatusCode>(CharacterReducer::apply(state, &event))
+    })?;
+
+    Ok(character)
+}
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
+/// POST /characters — Neuen NPC in der Academy spawnen.
 async fn spawn(
     State(state): State<AppState>,
     Json(req):    Json<SpawnRequest>,
 ) -> Result<(StatusCode, Json<CharacterSummary>), StatusCode> {
-    let id  = CharacterId::new();
-    let loc = req.location.map(LocationId::from).unwrap_or_else(LocationId::new);
+    let id      = CharacterId::new();
+    let loc     = req.location.map(LocationId::from).unwrap_or_else(LocationId::new);
     let born_at = WorldTick(req.born_at.unwrap_or(0));
-    let char = Character::new_npc(id, req.name.clone(), loc, born_at);
+    let char    = Character::new_npc(id, req.name.clone(), loc, born_at);
+
+    // Emittiere CharacterEvent::Created und persistiere es
+    let event = CharacterEvent::Created {
+        id,
+        kind:     EvtKind::Npc,
+        name:     req.name.clone(),
+        location: loc,
+        born_at,
+    };
+    let payload = serde_json::to_value(&event)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let store   = PgEventStore::new(state.db.clone());
+    let stream  = StreamId::from_uuid(id.inner());
+    store.append(stream, ExpectedVersion::NoStream, vec![payload]).await
+        .map_err(|e| {
+            tracing::error!(error = %e, "spawn: event store error");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    tracing::info!(character_id = %id, name = %req.name, "NPC spawned");
     let summary = CharacterSummary::from_char(&char);
-
-    // TODO: persist via PgEventStore (store.append(CharacterEvent::Created { ... }))
-    tracing::info!(character_id = %id, name = %req.name, "Spawned NPC");
-
     Ok((StatusCode::CREATED, Json(summary)))
 }
 
+/// GET /characters/:id — CharacterView aus Event-Store laden (Replay).
 async fn get_character(
-    Path(id): Path<Uuid>,
+    State(state): State<AppState>,
+    Path(id):     Path<Uuid>,
 ) -> Result<Json<CharacterSummary>, StatusCode> {
-    // TODO: load from event store / projection
-    Err(StatusCode::NOT_IMPLEMENTED)
+    let store = PgEventStore::new(state.db.clone());
+    let char  = load_character(&store, id).await?;
+    Ok(Json(CharacterSummary::from_char(&char)))
 }
 
+/// POST /characters/:id/tick — einen Simulations-Tick ausführen.
 async fn tick_character(
-    Path(id):  Path<Uuid>,
-    Json(req): Json<TickRequest>,
+    State(state): State<AppState>,
+    Path(id):     Path<Uuid>,
+    Json(req):    Json<TickRequest>,
 ) -> Result<Json<TickResponse>, StatusCode> {
-    // TODO: load character, run TickEngine, persist events, return updated view
-    Err(StatusCode::NOT_IMPLEMENTED)
+    let store = PgEventStore::new(state.db.clone());
+    let char  = load_character(&store, id).await?;
+
+    // Deterministischen TickContext erstellen (keine Wall-Clock-Zeit)
+    let realm   = uuid::Uuid::new_v4(); // pro Tick frisch — Arena-Isolation
+    let ctx     = TickContext::new(req.tick, realm, 1);
+    let events  = TickEngine::tick(&char, &ctx);
+
+    if events.is_empty() {
+        // Nichts zu persistieren — Character unverändert zurückgeben
+        return Ok(Json(TickResponse {
+            events_applied: 0,
+            character:      CharacterSummary::from_char(&char),
+            new_version:    char.version,
+        }));
+    }
+
+    // Events serialisieren + persistieren
+    let payloads: Result<Vec<_>, _> = events.iter()
+        .map(|e| serde_json::to_value(e))
+        .collect();
+    let payloads = payloads.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let stream = StreamId::from_uuid(id);
+    let new_version = store
+        .append(stream, ExpectedVersion::Exact(char.version), payloads)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "tick: event store error");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    // Neuen Zustand aus Events projizieren
+    let updated = events.iter()
+        .fold(char, |s, e| CharacterReducer::apply(s, e));
+
+    tracing::debug!(character_id = %id, tick = req.tick, events = events.len(), "tick applied");
+    Ok(Json(TickResponse {
+        events_applied: events.len(),
+        character:      CharacterSummary::from_char(&updated),
+        new_version,
+    }))
 }
 
-async fn get_goals(Path(id): Path<Uuid>) -> Result<Json<GoalsSummary>, StatusCode> {
-    // TODO: load from event store
-    Err(StatusCode::NOT_IMPLEMENTED)
+/// GET /characters/:id/goals — Goal-Stack des Characters.
+async fn get_goals(
+    State(state): State<AppState>,
+    Path(id):     Path<Uuid>,
+) -> Result<Json<GoalsSummary>, StatusCode> {
+    let store = PgEventStore::new(state.db.clone());
+    let char  = load_character(&store, id).await?;
+
+    Ok(Json(GoalsSummary {
+        active:  char.goals.active.as_ref().map(|g| format!("{:?}", g.kind)),
+        pending: char.goals.pending.iter()
+            .map(|g| format!("{:?}", g.kind))
+            .collect(),
+    }))
 }
 
-async fn get_memory(Path(id): Path<Uuid>) -> Result<Json<MemorySummary>, StatusCode> {
-    // TODO: load from event store
-    Err(StatusCode::NOT_IMPLEMENTED)
+/// GET /characters/:id/memory — Wichtigste Memory-Episoden.
+async fn get_memory(
+    State(state): State<AppState>,
+    Path(id):     Path<Uuid>,
+) -> Result<Json<MemorySummary>, StatusCode> {
+    let store = PgEventStore::new(state.db.clone());
+    let char  = load_character(&store, id).await?;
+
+    let episodes = char.memory.episodes.iter()
+        .map(|ep| EpisodeSummary {
+            id:      ep.id,
+            summary: ep.summary.clone(),
+            weight:  ep.weight,
+        })
+        .collect();
+
+    Ok(Json(MemorySummary { episodes }))
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────
