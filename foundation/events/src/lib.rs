@@ -8,6 +8,7 @@ pub mod academy;
 pub mod character;
 pub mod commands;
 pub mod envelope;
+pub mod store;
 
 pub use academy::AcademyEvent;
 pub use character::{
@@ -16,3 +17,7 @@ pub use character::{
 };
 pub use commands::AcademyCommand;
 pub use envelope::{AcademyEnvelope, CharacterEnvelope, EventEnvelope};
+pub use store::{
+    EventStore, ExpectedVersion, InMemoryEventStore,
+    StoredEvent, StoreError, StreamId,
+};
