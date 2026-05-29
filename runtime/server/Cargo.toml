@@ -14,9 +14,11 @@ events  = { workspace = true }
 quests  = { workspace = true }
 world   = { workspace = true }
 agents  = { workspace = true }
-sandbox    = { workspace = true }
-llm-free   = { workspace = true }
+sandbox     = { workspace = true }
+llm-free    = { workspace = true }
 async-trait = { workspace = true }
+characters  = { workspace = true }
+projections = { workspace = true }
 axum       = { workspace = true }
 tokio      = { workspace = true }
 tower      = { workspace = true }

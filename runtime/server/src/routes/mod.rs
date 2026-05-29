@@ -5,6 +5,7 @@
 
 pub mod achievements;
 pub mod biomes;
+pub mod characters;
 pub mod curriculum;
 pub mod groups;
 pub mod quests;
@@ -39,6 +40,7 @@ pub fn router(state: AppState) -> Router {
         .merge(sandbox::router())
         .merge(groups::router())
         .merge(achievements::router())
+        .merge(characters::router())
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(state)

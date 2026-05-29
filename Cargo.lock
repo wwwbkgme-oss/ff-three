@@ -417,9 +417,11 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 name = "events"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "types",
  "uuid",
 ]
@@ -1281,6 +1283,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "projections"
+version = "0.1.0"
+dependencies = [
+ "characters",
+ "events",
+ "serde",
+ "serde_json",
+ "types",
+]
+
+[[package]]
 name = "quests"
 version = "0.1.0"
 dependencies = [
@@ -1757,11 +1770,15 @@ version = "0.1.0"
 dependencies = [
  "agents",
  "anyhow",
+ "async-trait",
  "axum",
+ "characters",
  "chrono",
  "dotenvy",
  "events",
  "hex",
+ "llm-free",
+ "projections",
  "quests",
  "rand 0.8.6",
  "redis",
